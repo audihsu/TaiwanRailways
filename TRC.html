@@ -1,10 +1,12 @@
 <!doctype html>
-<!-- Build: single-file-rail-planner v2026.07.23.11; all 240 TRA stations use embedded official GPS coordinates and all 19 Alishan stations use embedded Forestry GIS coordinates, projected to a geographically relative schematic layout; scale is intentionally non-linear for readability; includes Alishan main, Zhaoping, Shenmu and Zhushan lines; proportional station markers; single embedded-data edition; no runtime remote fetch; reference timetable and fare; generation-time data refresh threshold 7 days; non-overlapping high-zoom station labels; mobile-optimized lazy timetable index and map rendering; generated 2026-07-23 15:23:38 (UTC+8, Asia/Taipei) -->
+<!-- Build: single-file-rail-planner v2026.07.23.11; mobile-only direct single-tap station selection and two-finger pan/pinch gestures; automatic system light/dark appearance; desktop interactions unchanged; all 240 TRA stations use embedded official GPS coordinates and all 19 Alishan stations use embedded Forestry GIS coordinates, projected to a geographically relative schematic layout; scale is intentionally non-linear for readability; includes Alishan main, Zhaoping, Shenmu and Zhushan lines; proportional station markers; single embedded-data edition; no runtime remote fetch; reference timetable and fare; generation-time data refresh threshold 7 days; non-overlapping high-zoom station labels; generated 2026-07-23 15:29:41 (UTC+8, Asia/Taipei) -->
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme:light)" content="#f7f9fc">
+<meta name="theme-color" media="(prefers-color-scheme:dark)" content="#121925">
 <meta name="build-version" content="v2026.07.23.11">
-<meta name="generated-at" content="2026-07-23 15:23:38 (UTC+8, Asia/Taipei)">
+<meta name="generated-at" content="2026-07-23 15:29:41 (UTC+8, Asia/Taipei)">
 <meta name="data-snapshot-at" content="2026-07-22 14:45:45 (UTC+8, Asia/Taipei)">
 <meta name="alishan-data-snapshot-at" content="2026-07-23 08:36:40 (UTC+8, Asia/Taipei)">
 <meta name="alishan-branch-data-snapshot-at" content="2026-07-23 08:59:04 (UTC+8, Asia/Taipei)">
@@ -101,9 +103,7 @@ svg{display:block;overflow:visible} .outer-grid{fill:url(#gridPattern)} .network
 @media(min-width:701px) and (max-width:1050px){:root{--sidebar-w:330px}.brand-copy strong{font-size:12.5px}#displayPanel{width:330px}.metrics{grid-template-columns:1fr}.metric{display:grid;grid-template-columns:auto 1fr;align-items:center;text-align:left;gap:8px}.metric small{margin:0}}
 @media(max-width:700px){
  :root{--sidebar-w:auto;--sidebar-gap:9px}
- .panel,#topControls,.corner,.plan-title{backdrop-filter:none}
- .route.rail-under,.trip-path{filter:none}
- #viewport{background:var(--map)}
+ #viewport{background:var(--map);overscroll-behavior:contain}
  #sidebar{left:max(9px,env(safe-area-inset-left));right:60px;top:auto;bottom:max(9px,env(safe-area-inset-bottom));width:auto;max-height:63vh;gap:6px}
  #brandBar{display:none}
  #searchPanel{position:relative;left:auto;top:auto;bottom:auto;width:100%;padding:6px 8px;border-radius:14px;order:1}
@@ -137,7 +137,7 @@ svg{display:block;overflow:visible} .outer-grid{fill:url(#gridPattern)} .network
 <div id="portraitLock"><div>↻<br><span data-i="portrait"></span></div></div><div id="toast" class="toast"></div></div>
 <script>
 const BUILD_VERSION="v2026.07.23.11";
-const GENERATED_AT="2026-07-23 15:23:38 (UTC+8, Asia/Taipei)";
+const GENERATED_AT="2026-07-23 15:29:41 (UTC+8, Asia/Taipei)";
 const DATA_SNAPSHOT_AT="2026-07-22 14:45:45 (UTC+8, Asia/Taipei)";
 const ALISHAN_DATA_SNAPSHOT_AT="2026-07-23 08:36:40 (UTC+8, Asia/Taipei)";
 const ALISHAN_BRANCH_DATA_SNAPSHOT_AT="2026-07-23 08:59:04 (UTC+8, Asia/Taipei)";
@@ -247,7 +247,8 @@ const I18N={"zh":{"planner":"規劃旅程","from":"出發站","to":"抵達站","
 const DEFAULT_GRADES=new Set([1,2,3,4]);
 const BRANCH_TERMINALS=new Set(['T165','T217','T219','T230','T231','T237','T239','A016','A017','A018','A020']);
 let lang=getLang(), fromId='',toId='', resultCollapsed=false, activeFilter='all', activeGrades=new Set(DEFAULT_GRADES), searchHitId='';
-let scale=1,tx=0,ty=0,minScale=.18,maxScale=16,drag=null,pinch=null,zoomRenderTimer=null,mapRenderKey='';
+let scale=1,tx=0,ty=0,minScale=.18,maxScale=16,drag=null,pinch=null,zoomRenderFrame=0,ignoreStationClickUntil=0;
+const mobileLayout=matchMedia('(max-width:700px)');
  let planRequestSeq=0;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 function getCookie(n){try{return document.cookie.split('; ').find(x=>x.startsWith(n+'='))?.split('=')[1]}catch{return undefined}}
@@ -255,7 +256,7 @@ function storageGet(k){try{return localStorage.getItem(k)}catch{return null}} fu
 function getLang(){let v=getCookie('railPlannerLang')||storageGet('railPlannerLang');if(v&&I18N[v])return v;let l=(navigator.languages?.[0]||navigator.language||'en').toLowerCase();return l.startsWith('zh')?'zh':l.startsWith('ja')?'ja':l.startsWith('ko')?'ko':'en'}
 function setLang(v){lang=v;try{document.cookie='railPlannerLang='+v+';max-age=31536000;path=/;SameSite=Lax'}catch{}storageSet('railPlannerLang',v);applyLang();renderAll();}
 function t(k){return I18N[lang][k]||I18N.en[k]||k} function nm(o){return o?.[lang]||o?.en||o?.zh||''}
-function applyLang(){document.documentElement.lang={zh:'zh-Hant',en:'en',ja:'ja',ko:'ko'}[lang];document.title=nm(CFG.title)+'｜'+t('interactiveVersion')+' '+BUILD_VERSION;$$('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));$('#appTitle').textContent=nm(CFG.title);$('#search').placeholder=t('search');$('#swap').title=t('swap');$('#swap').setAttribute('aria-label',t('swap'));$('#collapseBtn').title=resultCollapsed?t('expand'):t('collapse');$('#collapseBtn').setAttribute('aria-label',resultCollapsed?t('expand'):t('collapse'));$('#moreBtn').title=t('menu');$('#moreBtn').setAttribute('aria-label',t('menu'));$('#infoBtn').title=t('info');$('#infoBtn').setAttribute('aria-label',t('info'));$('#zoomIn').title=t('zoomIn');$('#zoomIn').setAttribute('aria-label',t('zoomIn'));$('#zoomOut').title=t('zoomOut');$('#zoomOut').setAttribute('aria-label',t('zoomOut'));$('#clearSearch').title=t('clearSearch');$('#clearSearch').setAttribute('aria-label',t('clearSearch'));$('#closeModal').title=t('close');$('#closeModal').setAttribute('aria-label',t('close'));$('#displayBtn').title=t('mapDisplay');$('#displayBtn').setAttribute('aria-label',t('mapDisplay'));$('#closeDisplay').title=t('closeDisplay');$('#closeDisplay').setAttribute('aria-label',t('closeDisplay'));renderSelects();renderChips();renderModal();renderLegend();renderResult();}
+function applyLang(){document.documentElement.lang={zh:'zh-Hant',en:'en',ja:'ja',ko:'ko'}[lang];document.title=nm(CFG.title)+'｜'+t('interactiveVersion')+' '+BUILD_VERSION;$$('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));$('#appTitle').textContent=nm(CFG.title);$('#search').placeholder=t('search');$('#swap').title=t('swap');$('#swap').setAttribute('aria-label',t('swap'));$('#collapseBtn').title=resultCollapsed?t('expand'):t('collapse');$('#collapseBtn').setAttribute('aria-label',resultCollapsed?t('expand'):t('collapse'));$('#moreBtn').title=t('menu');$('#moreBtn').setAttribute('aria-label',t('menu'));$('#infoBtn').title=t('info');$('#infoBtn').setAttribute('aria-label',t('info'));$('#zoomIn').title=t('zoomIn');$('#zoomIn').setAttribute('aria-label',t('zoomIn'));$('#zoomOut').title=t('zoomOut');$('#zoomOut').setAttribute('aria-label',t('zoomOut'));$('#clearSearch').title=t('clearSearch');$('#clearSearch').setAttribute('aria-label',t('clearSearch'));$('#closeModal').title=t('close');$('#closeModal').setAttribute('aria-label',t('close'));$('#displayBtn').title=t('mapDisplay');$('#displayBtn').setAttribute('aria-label',t('mapDisplay'));$('#closeDisplay').title=t('closeDisplay');$('#closeDisplay').setAttribute('aria-label',t('closeDisplay'));renderSelects();renderChips();renderModal();}
 const TRA_GRADE_RADII={1:5.8,2:4.8,3:3.7,4:2.8,5:2.1,6:1.55};
 const TRA_SPECIAL=new Set(['臺北','臺中','高雄','花蓮']);
 const TRA_FIRST=new Set(['基隆','七堵','南港','松山','萬華','板橋','樹林','桃園','中壢','新竹','竹南','苗栗','豐原','彰化','員林','斗六','嘉義','新營','臺南','新左營','屏東','潮州','枋寮','瑞芳','宜蘭','羅東','玉里','臺東']);
@@ -276,14 +277,14 @@ let rh=`<button class="control-button route-control all-routes ${activeFilter===
 let gh='';for(let g=1;g<=6;g++){let active=activeGrades.has(g);gh+=`<button class="control-button grade-control ${active?'active':''}" data-grade="${g}" aria-pressed="${active}">${gradeIcon(g)}<span>${gradeLabel(g)}</span><span class="check">✓</span></button>`}$('#gradeControls').innerHTML=gh;$('#gradeControls').setAttribute('aria-label',t('stationGrades'));$('#gradeCount').textContent=`${t('visibleStations')} ${activeGradeStationCount()} / ${CFG.stations.length}`}
 function linePath(l){return l.stations.map(id=>stationMap.get(id)).filter(Boolean).map(s=>`${s.x},${s.y}`).join(' ')}
 function boxesOverlap(a,b){return !(a[2]<=b[0]||a[0]>=b[2]||a[3]<=b[1]||a[1]>=b[3])}
-function layoutStationLabels(labels,obstacles,renderScale){let occupied=[],placed=[],mustShowAll=renderScale>=12,mobile=innerWidth<700,cell=Math.max(1,32/renderScale),grid=new Map;const cellRange=box=>[Math.floor(box[0]/cell),Math.floor(box[1]/cell),Math.floor(box[2]/cell),Math.floor(box[3]/cell)],cellKey=(x,y)=>x+','+y,addBox=box=>{let n=occupied.push(box)-1,[x0,y0,x1,y1]=cellRange(box);for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){let k=cellKey(x,y),a=grid.get(k);if(a)a.push(n);else grid.set(k,[n])}},collides=box=>{let seen=new Set,[x0,y0,x1,y1]=cellRange(box);for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)for(const i of grid.get(cellKey(x,y))||[]){if(seen.has(i))continue;seen.add(i);if(boxesOverlap(box,occupied[i]))return true}return false};for(const box of obstacles)addBox(box);labels.sort((a,b)=>b.priority-a.priority);for(const o of labels){let text=stationCode(o.s)+' '+nm(o.s.name),fontPx=mobile?(o.g<=2?11.5:10):(o.g<=2?12.5:11),wPx=Math.min(lang==='en'?180:150,Math.max(36,text.length*(lang==='en'?6.1:lang==='ja'?10:10.5))),hPx=fontPx+4,dotPx=o.dotPx||5,maxRadius=mustShowAll?500:48,pick=null;for(let radius=dotPx+7;radius<=maxRadius&&!pick;radius+=mustShowAll?9:13){for(let deg=0;deg<360;deg+=45){let rad=deg*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad),dxPx=c*radius,dyPx=s*radius;if(c<-.2)dxPx-=wPx;else if(c<=.2)dxPx-=wPx/2;if(s>.2)dyPx+=hPx;else if(s>=-.2)dyPx+=hPx*.32;let dx=dxPx/renderScale,dy=dyPx/renderScale,w=wPx/renderScale,h=hPx/renderScale,pad=2/renderScale,box=[o.x+dx-pad,o.y+dy-h-pad,o.x+dx+w+pad,o.y+dy+3/renderScale+pad];if(!collides(box)){pick={...o,text,dx,dy,box,fontPx,wPx,hPx,leader:radius>dotPx+20};break}}}if(!pick)continue;addBox(pick.box);placed.push(pick)}return placed}
-function renderAll(){let renderKey=[lang,activeFilter,[...activeGrades].sort().join(','),fromId,toId,searchHitId,scale.toFixed(4),innerWidth<700?'m':'d',currentPath?.nodes?.join(',')||'',currentPath?.edges?.map(e=>e.line).join(',')||''].join('|');if(renderKey===mapRenderKey){applyTransform();return}const W=CFG.canvas[0],H=CFG.canvas[1],padW=W*2,padH=H*2,ox=W/2,oy=H/2;let svg=`<svg width="${padW}" height="${padH}" viewBox="0 0 ${padW} ${padH}"><defs><pattern id="gridPattern" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="var(--grid)" stroke-width="1"/></pattern></defs><rect class="outer-grid" width="100%" height="100%"/><rect class="network-bound" x="${ox}" y="${oy}" width="${W}" height="${H}"/>`;
+function layoutStationLabels(labels,obstacles,renderScale){let occupied=[...obstacles],placed=[],mustShowAll=renderScale>=12,mobile=innerWidth<700;labels.sort((a,b)=>b.priority-a.priority);for(const o of labels){let text=stationCode(o.s)+' '+nm(o.s.name),fontPx=mobile?(o.g<=2?11.5:10):(o.g<=2?12.5:11),wPx=Math.min(lang==='en'?180:150,Math.max(36,text.length*(lang==='en'?6.1:lang==='ja'?10:10.5))),hPx=fontPx+4,dotPx=o.dotPx||5,maxRadius=mustShowAll?500:48,pick=null;for(let radius=dotPx+7;radius<=maxRadius&&!pick;radius+=mustShowAll?9:13){for(let deg=0;deg<360;deg+=45){let rad=deg*Math.PI/180,c=Math.cos(rad),s=Math.sin(rad),dxPx=c*radius,dyPx=s*radius;if(c<-.2)dxPx-=wPx;else if(c<=.2)dxPx-=wPx/2;if(s>.2)dyPx+=hPx;else if(s>=-.2)dyPx+=hPx*.32;let dx=dxPx/renderScale,dy=dyPx/renderScale,w=wPx/renderScale,h=hPx/renderScale,pad=2/renderScale,box=[o.x+dx-pad,o.y+dy-h-pad,o.x+dx+w+pad,o.y+dy+3/renderScale+pad];if(!occupied.some(b=>boxesOverlap(box,b))){pick={...o,text,dx,dy,box,fontPx,wPx,hPx,leader:radius>dotPx+20};break}}}if(!pick)continue;occupied.push(pick.box);placed.push(pick)}return placed}
+function renderAll(){const W=CFG.canvas[0],H=CFG.canvas[1],padW=W*2,padH=H*2,ox=W/2,oy=H/2;let svg=`<svg width="${padW}" height="${padH}" viewBox="0 0 ${padW} ${padH}"><defs><pattern id="gridPattern" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="var(--grid)" stroke-width="1"/></pattern></defs><rect class="outer-grid" width="100%" height="100%"/><rect class="network-bound" x="${ox}" y="${oy}" width="${W}" height="${H}"/>`;
 let pathSet=new Set(currentPath?.nodes||[]);
 for(const l of CFG.lines){let pts=l.stations.map(id=>stationMap.get(id)).filter(Boolean).map(s=>`${s.x+ox},${s.y+oy}`).join(' ');let dim=activeFilter!=='all'&&activeFilter!==l.id,state=dim?'dim':'';if(l.railStyle){svg+=`<polyline class="route rail-under ${state}" points="${pts}" style="stroke:${l.color};stroke-width:${Math.max(6,l.width||5)+2}px"/><polyline class="route rail-center ${l.railStyle} ${state}" points="${pts}"/>`;}else{svg+=`<polyline class="route ${state}" points="${pts}" stroke="${l.color}" stroke-width="${l.width||7}" ${l.dash?'stroke-dasharray="10 8"':''}/>`;}}
 if(currentPath){for(let i=0;i<currentPath.edges.length;i++){let e=currentPath.edges[i],a=stationMap.get(currentPath.nodes[i]),b=stationMap.get(currentPath.nodes[i+1]);if(!a||!b)continue;let x1=a.x+ox,y1=a.y+oy,x2=b.x+ox,y2=b.y+oy;if(e.line==='WALK')svg+=`<line class="trip-walk" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;else{let tripColor=lineMap.get(e.line)?.color||'var(--accent)';svg+=`<line class="trip-halo" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/><line class="trip-path" data-trip-line="${e.line}" style="stroke:${tripColor}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`}}}
 let labels=[],obstacles=[],renderScale=Math.max(scale,minScale);for(const s of CFG.stations){let routeVisible=activeFilter==='all'||s.lines.includes(activeFilter),routeFocused=lineMap.get(activeFilter)?.operator==='AFR'&&s.lines.includes(activeFilter),g=stationGrade(s),isBranchTerminal=BRANCH_TERMINALS.has(s.id),isPath=pathSet.has(s.id),forced=s.id===fromId||s.id===toId||s.id===searchHitId||isPath,visible=(routeVisible&&(activeGrades.has(g)||isBranchTerminal))||routeFocused||forced;if(!visible)continue;let cls='station-dot grade-'+g+(g<=2?' station-core':'')+(s.lines.length>1?' interchange':'')+(s.id===fromId?' start':'')+(s.id===toId?' end':'')+(isPath?' path':''),x=s.x+ox,y=s.y+oy,baseDotPx=Math.max(TRA_GRADE_RADII[g],s.lines.length>1?4.5:0),markerPx=g===1?7.2:g===2?6.2:baseDotPx,corePx=g<=2?markerPx*.34:baseDotPx,r=corePx/renderScale,ringR=markerPx/renderScale,hitR=Math.max(12,markerPx+6)/renderScale,obstacleR=(markerPx+3)/renderScale,ringHtml=g<=2?`<circle class="station-grade-ring grade-${g}" cx="${x}" cy="${y}" r="${ringR}"/>`:'';obstacles.push([x-obstacleR,y-obstacleR,x+obstacleR,y+obstacleR]);svg+=`<g class="station" data-id="${s.id}" data-grade="${g}"><circle class="station-hit" cx="${x}" cy="${y}" r="${hitR}"/>${ringHtml}<circle class="${cls}" cx="${x}" cy="${y}" r="${r}"/><title>${stationCode(s)} ${nm(s.name)}・${gradeLabel(g)}${s.service===false?'・'+notServedText():''}</title></g>`;let showLabel=(routeVisible&&(activeGrades.has(g)||isBranchTerminal))||routeFocused||s.id===fromId||s.id===toId||s.id===searchHitId||(isPath&&(g<=2||s.lines.length>1));if(showLabel)labels.push({s,x,y,g,dotPx:markerPx,priority:(7-g)*2+(s.lines.length>1?3:0)+(isBranchTerminal?4:0)+(isPath?2:0)+(s.id===searchHitId?8:0)+(s.id===fromId||s.id===toId?12:0)})}
 for(const o of layoutStationLabels(labels,obstacles,renderScale)){let lx=o.x+o.dx,ly=o.y+o.dy;if(o.leader)svg+=`<line class="label-leader" x1="${o.x}" y1="${o.y}" x2="${lx}" y2="${ly-o.hPx/(renderScale*2)}"/>`;svg+=`<text class="station-label ${o.g<=2?'major':''}" style="font-size:${o.fontPx/renderScale}px;stroke-width:${3/renderScale}px" x="${lx}" y="${ly}">${escapeHtml(o.text)}</text>`}
-svg+='</svg>';$('#world').innerHTML=svg;mapRenderKey=renderKey;applyTransform()} 
+svg+='</svg>';$('#world').innerHTML=svg;$$('.station').forEach(g=>g.onclick=e=>{e.stopPropagation();if(performance.now()<ignoreStationClickUntil)return;selectStation(g.dataset.id)});applyTransform();renderLegend();renderResult()} 
 function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function setTrip(a='',b='',autoExpand=true){planRequestSeq++;fromId=a||'';toId=b||'';currentPath=null;$('#from').value=fromId;$('#to').value=toId;renderChips();if(fromId&&toId)plan(autoExpand);else{renderAll();renderResult()}}
 function selectStation(id){let s=stationMap.get(id);if(s?.service===false){toast(notServedText());return}if(!fromId||toId)setTrip(id,'',false);else setTrip(fromId,id,true)}
@@ -324,47 +325,32 @@ function localizedEmbeddedTrainType(code){
  };
  return d[key]?.[lang]||d[key]?.zh||code
 }
-function pruneScheduleOptions(all){
- let keep=[],seen=new Set;
- for(const rank of [...new Set(all.map(x=>x[5]))]){
-  let g=all.filter(x=>x[5]===rank),picks=[
-   ...g.slice().sort((a,b)=>(a[4]-a[3])-(b[4]-b[3])||a[3]-b[3]).slice(0,2),
-   ...g.slice().sort((a,b)=>a[3]-b[3]).slice(0,1),
-   ...g.slice().sort((a,b)=>b[3]-a[3]).slice(0,1)
-  ];
-  for(const x of picks){let k=x.slice(0,3).join(':');if(!seen.has(k)){seen.add(k);keep.push(x)}}
- }
- keep.sort((a,b)=>b[5]-a[5]||(a[4]-a[3])-(b[4]-b[3])||a[3]-b[3]);
- return keep
-}
 function timetableIndex(){
  if(TIMETABLE_INDEX)return TIMETABLE_INDEX;
- let n=CFG.stations.length,structure=Array.from({length:n},()=>new Uint8Array(n)),reverse=Array.from({length:n},()=>new Uint8Array(n)),occurrences=Array.from({length:n},()=>[]);
+ let byFrom=new Map();
+ const add=(a,b,o)=>{let d=byFrom.get(a);if(!d)byFrom.set(a,d=new Map);let v=d.get(b);if(!v)d.set(b,v=[]);v.push(o)};
  for(let ti=0;ti<EMBEDDED_TIMETABLE.length;ti++){
-  let ss=EMBEDDED_TIMETABLE[ti][3];
-  for(let i=0;i<ss.length;i++){
-   let from=ss[i][0];occurrences[from].push([ti,i]);
-   for(let j=i+1;j<ss.length;j++){let to=ss[j][0];structure[from][to]=1;reverse[to][from]=1}
-  }
+  let tr=EMBEDDED_TIMETABLE[ti],ss=tr[3],rank=trainPriority(tr[1]);
+  for(let i=0;i<ss.length-1;i++)for(let j=i+1;j<ss.length;j++)add(ss[i][0],ss[j][0],[ti,i,j,ss[i][2],ss[j][1],rank]);
  }
- TIMETABLE_INDEX={structure,reverse,occurrences,byFrom:new Map};
+ for(const d of byFrom.values())for(const [to,all] of d){
+  let keep=[],seen=new Set;
+  for(const rank of [...new Set(all.map(x=>x[5]))]){
+   let g=all.filter(x=>x[5]===rank),picks=[
+    ...g.slice().sort((a,b)=>(a[4]-a[3])-(b[4]-b[3])||a[3]-b[3]).slice(0,2),
+    ...g.slice().sort((a,b)=>a[3]-b[3]).slice(0,1),
+    ...g.slice().sort((a,b)=>b[3]-a[3]).slice(0,1)
+   ];
+   for(const x of picks){let k=x.slice(0,3).join(':');if(!seen.has(k)){seen.add(k);keep.push(x)}}
+  }
+  keep.sort((a,b)=>b[5]-a[5]||(a[4]-a[3])-(b[4]-b[3])||a[3]-b[3]);
+  d.set(to,keep)
+ }
+ let reverse=new Map;for(const [from,dests] of byFrom)for(const to of dests.keys()){let s=reverse.get(to);if(!s)reverse.set(to,s=new Set);s.add(from)}
+ TIMETABLE_INDEX={byFrom,reverse};
  return TIMETABLE_INDEX
 }
-function scheduleDestinations(from){let row=timetableIndex().structure[from],out=[];if(!row)return out;for(let i=0;i<row.length;i++)if(row[i])out.push(i);return out}
-function scheduleOrigins(to){let row=timetableIndex().reverse[to],out=[];if(!row)return out;for(let i=0;i<row.length;i++)if(row[i])out.push(i);return out}
-function scheduleOptionsFrom(from){
- let index=timetableIndex(),cached=index.byFrom.get(from);if(cached)return cached;
- let destinations=new Map;
- for(const [ti,i] of index.occurrences[from]||[]){
-  let tr=EMBEDDED_TIMETABLE[ti],ss=tr[3],rank=trainPriority(tr[1]);
-  for(let j=i+1;j<ss.length;j++){let to=ss[j][0],all=destinations.get(to);if(!all)destinations.set(to,all=[]);all.push([ti,i,j,ss[i][2],ss[j][1],rank])}
- }
- for(const [to,all] of destinations)destinations.set(to,pruneScheduleOptions(all));
- index.byFrom.set(from,destinations);
- return destinations
-}
-const STATION_INDEX=new Map(CFG.stations.map((s,i)=>[s.id,i]));
-function stationIndex(id){return STATION_INDEX.get(id)??-1}
+function stationIndex(id){return CFG.stations.findIndex(s=>s.id===id)}
 function alignScheduleOption(o,earliest){
  let day=0,dep=o[3],arr=o[4];
  if(Number.isFinite(earliest)){day=Math.max(0,Math.ceil((earliest-dep)/86400));while(dep+day*86400<earliest)day++}
@@ -396,25 +382,25 @@ function labelBetter(a,b){
  return ad<bd
 }
 function structuralScheduleJourney(origin,destination){
- let q=[origin],seen=new Set([origin]),prev=new Map;
- while(q.length){let u=q.shift();for(const v of scheduleDestinations(u)){if(seen.has(v))continue;seen.add(v);prev.set(v,u);if(v===destination)q.length=0;else q.push(v)}}
+ let idx=timetableIndex().byFrom,q=[origin],seen=new Set([origin]),prev=new Map;
+ while(q.length){let u=q.shift();for(const v of idx.get(u)?.keys()||[]){if(seen.has(v))continue;seen.add(v);prev.set(v,u);if(v===destination)q.length=0;else q.push(v)}}
  if(!seen.has(destination))return null;
  let chain=[destination];while(chain[0]!==origin)chain.unshift(prev.get(chain[0]));
  let rides=[],lastArr=null;
- for(let i=0;i<chain.length-1;i++){let o=bestScheduleOption(scheduleOptionsFrom(chain[i]).get(chain[i+1]),lastArr==null?null:lastArr+300);if(!o)return null;rides.push(o);lastArr=o.arrAbs}
+ for(let i=0;i<chain.length-1;i++){let o=bestScheduleOption(idx.get(chain[i]).get(chain[i+1]),lastArr==null?null:lastArr+300);if(!o)return null;rides.push(o);lastArr=o.arrAbs}
  return{rides}
 }
 function findScheduledJourney(originId,destinationId){
- let origin=stationIndex(originId),destination=stationIndex(destinationId);timetableIndex();
+ let origin=stationIndex(originId),destination=stationIndex(destinationId),index=timetableIndex(),idx=index.byFrom;
  if(origin<0||destination<0)return null;
- let direct=bestScheduleOption(scheduleOptionsFrom(origin).get(destination));
+ let direct=bestScheduleOption(idx.get(origin)?.get(destination));
  if(direct)return{rides:[direct]};
- let hops=new Map([[destination,0]]),hq=[destination];while(hq.length){let u=hq.shift();for(const v of scheduleOrigins(u)){if(hops.has(v))continue;hops.set(v,hops.get(u)+1);hq.push(v)}}
+ let hops=new Map([[destination,0]]),hq=[destination];while(hq.length){let u=hq.shift();for(const v of index.reverse.get(u)||[]){if(hops.has(v))continue;hops.set(v,hops.get(u)+1);hq.push(v)}}
  let required=hops.get(origin);if(!Number.isFinite(required))return null;
  let current=new Map([[origin,[{at:origin,rides:[],visited:new Set([origin]),startAbs:null,arrAbs:null}]]]);
  for(let round=1;round<=required;round++){
   let next=new Map;
-  for(const labels of current.values())for(const label of labels)for(const [to,options] of scheduleOptionsFrom(label.at))for(const o of connectedScheduleOptions(options,label.arrAbs==null?null:label.arrAbs+300)){
+  for(const labels of current.values())for(const label of labels)for(const [to,options] of idx.get(label.at)||[])for(const o of connectedScheduleOptions(options,label.arrAbs==null?null:label.arrAbs+300)){
    if(hops.get(to)!==required-round)continue;
    if(label.visited.has(to))continue;
    let n={at:to,rides:[...label.rides,o],visited:new Set(label.visited),startAbs:label.startAbs??o.depAbs,arrAbs:o.arrAbs};n.visited.add(to);
@@ -608,7 +594,7 @@ function renderModal(){let src=(CFG.sources||[]).map(s=>`<li><a href="${s.url}" 
 function mapSafeArea(){let sidebar=$('#sidebar').getBoundingClientRect();return innerWidth>700?{left:Math.ceil(sidebar.right+14),right:20,top:14,bottom:56}:{left:10,right:58,top:58,bottom:Math.min(innerHeight*.4,270)}}
 function fitNetwork(centerId=CFG.defaultCenter){let vp=$('#viewport').getBoundingClientRect(),W=CFG.canvas[0],H=CFG.canvas[1],safe=mapSafeArea(),availW=Math.max(120,vp.width-safe.left-safe.right),availH=Math.max(120,vp.height-safe.top-safe.bottom);scale=Math.max(minScale,Math.min(1.15,availW/(W*1.05),availH/(H*1.05)));let s=stationMap.get(centerId)||CFG.stations[0],worldX=W/2+s.x,worldY=H/2+s.y,targetX=safe.left+(availW/2),targetY=safe.top+availH/2;tx=targetX-worldX*scale;ty=targetY-worldY*scale;renderAll()}
 function applyTransform(){$('#world').style.transform=`translate(${tx}px,${ty}px) scale(${scale})`}
-function scheduleZoomRender(){clearTimeout(zoomRenderTimer);zoomRenderTimer=setTimeout(()=>{zoomRenderTimer=null;renderAll()},90)}
+function scheduleZoomRender(){if(zoomRenderFrame)return;zoomRenderFrame=requestAnimationFrame(()=>{zoomRenderFrame=0;renderAll()})}
 function zoomAt(f,cx=innerWidth/2,cy=innerHeight/2){let ns=Math.max(minScale,Math.min(maxScale,scale*f));tx=cx-(cx-tx)*ns/scale;ty=cy-(cy-ty)*ns/scale;scale=ns;applyTransform();scheduleZoomRender()}
 function toast(s){let e=$('#toast');e.textContent=s;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),1700)}
 $('#from').onchange=e=>setTrip(e.target.value,toId,true);$('#to').onchange=e=>setTrip(fromId,e.target.value,true);$('#swap').onclick=()=>setTrip(toId,fromId,true);
@@ -618,14 +604,61 @@ $('#routeControls').addEventListener('click',e=>{e.stopPropagation();let b=e.tar
 $('#gradeControls').addEventListener('click',e=>{e.stopPropagation();let b=e.target.closest('[data-grade]');if(!b)return;let g=Number(b.dataset.grade);if(activeGrades.has(g)){if(activeGrades.size===1){toast(t('gradeSelectionHint'));return}activeGrades.delete(g)}else activeGrades.add(g);renderChips();renderAll()});
 $('#majorOnlyBtn').onclick=e=>{e.stopPropagation();activeGrades=new Set([1,2]);renderChips();renderAll()};$('#allGradesBtn').onclick=e=>{e.stopPropagation();activeGrades=new Set([1,2,3,4,5,6]);renderChips();renderAll()};
 $('#chips').addEventListener('click',e=>{e.stopPropagation();let b=e.target.closest('[data-quick]');if(!b)return;let [a,z]=b.dataset.quick.split(',');setTrip(a,z,true)});
-$('#moreBtn').onclick=e=>{e.stopPropagation();$('#moreMenu').hidden=!$('#moreMenu').hidden;$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false')};$('#fitBtn').onclick=()=>{fitNetwork();$('#moreMenu').hidden=true};$('#resetBtn').onclick=()=>{activeFilter='all';activeGrades=new Set(DEFAULT_GRADES);searchHitId='';$('#search').value='';renderChips();fitNetwork();$('#moreMenu').hidden=true;$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false')};$('#infoBtn').onclick=()=>{$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false');$('#modal').classList.add('open')};$('#closeModal').onclick=()=>$('#modal').classList.remove('open');$$('[data-lang]').forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
+$('#moreBtn').onclick=e=>{e.stopPropagation();$('#moreMenu').hidden=!$('#moreMenu').hidden;$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false')};$('#fitBtn').onclick=()=>{fitNetwork();$('#moreMenu').hidden=true};$('#resetBtn').onclick=()=>{activeFilter='all';activeGrades=new Set(DEFAULT_GRADES);searchHitId='';$('#search').value='';renderChips();renderAll();fitNetwork();$('#moreMenu').hidden=true;$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false')};$('#infoBtn').onclick=()=>{$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false');$('#modal').classList.add('open')};$('#closeModal').onclick=()=>$('#modal').classList.remove('open');$$('[data-lang]').forEach(b=>b.onclick=()=>setLang(b.dataset.lang));
 $('#zoomIn').onclick=()=>zoomAt(1.25);$('#zoomOut').onclick=()=>zoomAt(.8);$('#clearSearch').onclick=()=>{searchHitId='';$('#search').value='';renderAll()};$('#search').oninput=e=>{let q=e.target.value.trim().toLowerCase();if(!q){searchHitId='';return renderAll()}let s=CFG.stations.find(s=>(stationCode(s)+' '+Object.values(s.lineCodes||{}).join(' ')+' '+Object.values(s.name).join(' ')).toLowerCase().includes(q));if(s){searchHitId=s.id;focusStation(s.id)}};
 function focusStation(id){let s=stationMap.get(id),W=CFG.canvas[0],H=CFG.canvas[1],safe=mapSafeArea(),centerX=safe.left+(innerWidth-safe.left-safe.right)/2,centerY=safe.top+(innerHeight-safe.top-safe.bottom)/2;scale=Math.max(scale,.9);tx=centerX-(W/2+s.x)*scale;ty=centerY-(H/2+s.y)*scale;applyTransform();renderAll()}
 $$('.corner-toggle').forEach(b=>b.onclick=e=>{e.stopPropagation();let box=b.parentElement,other=box.id==='legendBox'?$('#scaleBox'):$('#legendBox');other.classList.remove('open');box.classList.toggle('open')});
 document.addEventListener('click',e=>{if(!e.target.closest('#topControls'))$('#moreMenu').hidden=true;if(!e.target.closest('#displayPanel')&&!e.target.closest('#displayBtn')){$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false')}if(!e.target.closest('.corner'))$$('.corner').forEach(x=>x.classList.remove('open'))});document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#modal').classList.contains('open'))$('#modal').classList.remove('open');else if(!$('#displayPanel').hidden){$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false')}else if(!$('#moreMenu').hidden)$('#moreMenu').hidden=true;else $$('.corner').forEach(x=>x.classList.remove('open'))}});
-$('#world').addEventListener('click',e=>{let station=e.target.closest('.station');if(!station)return;e.stopPropagation();selectStation(station.dataset.id)});
 const vp=$('#viewport');vp.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;if(e.target.closest('.station'))return;drag={x:e.clientX,y:e.clientY,tx,ty,id:e.pointerId};vp.setPointerCapture(e.pointerId);$('#world').classList.add('dragging')});vp.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;tx=drag.tx+e.clientX-drag.x;ty=drag.ty+e.clientY-drag.y;applyTransform()});vp.addEventListener('pointerup',e=>{drag=null;$('#world').classList.remove('dragging')});vp.addEventListener('pointercancel',()=>{drag=null;$('#world').classList.remove('dragging')});vp.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.12:.89,e.clientX,e.clientY)},{passive:false});
-let touches=new Map();vp.addEventListener('touchstart',e=>{for(const x of e.changedTouches)touches.set(x.identifier,[x.clientX,x.clientY]);if(touches.size===2){let a=[...touches.values()],dx=a[1][0]-a[0][0],dy=a[1][1]-a[0][1];pinch={dist:Math.hypot(dx,dy),scale,tx,ty,cx:(a[0][0]+a[1][0])/2,cy:(a[0][1]+a[1][1])/2};e.preventDefault()}},{passive:false});vp.addEventListener('touchmove',e=>{for(const x of e.changedTouches)touches.set(x.identifier,[x.clientX,x.clientY]);if(pinch&&touches.size===2){let a=[...touches.values()],cx=(a[0][0]+a[1][0])/2,cy=(a[0][1]+a[1][1])/2,d=Math.hypot(a[1][0]-a[0][0],a[1][1]-a[0][1]),ns=Math.max(minScale,Math.min(maxScale,pinch.scale*d/pinch.dist));tx=cx-(pinch.cx-pinch.tx)*ns/pinch.scale;ty=cy-(pinch.cy-pinch.ty)*ns/pinch.scale;scale=ns;applyTransform();e.preventDefault()}},{passive:false});vp.addEventListener('touchend',e=>{for(const x of e.changedTouches)touches.delete(x.identifier);if(touches.size<2&&pinch){pinch=null;renderAll()}});vp.addEventListener('touchcancel',e=>{for(const x of e.changedTouches)touches.delete(x.identifier);if(touches.size<2&&pinch){pinch=null;renderAll()}});
+let touches=new Map(),mobileTap=null,mobileMultitouch=false;
+vp.addEventListener('touchstart',e=>{
+ for(const x of e.changedTouches)touches.set(x.identifier,[x.clientX,x.clientY]);
+ if(mobileLayout.matches&&touches.size===1){
+  let x=e.changedTouches[0],station=e.target.closest?.('.station');
+  mobileTap={id:x.identifier,x:x.clientX,y:x.clientY,stationId:station?.dataset.id||''}
+ }
+ if(touches.size===2){
+  let a=[...touches.values()],dx=a[1][0]-a[0][0],dy=a[1][1]-a[0][1];
+  pinch={dist:Math.max(1,Math.hypot(dx,dy)),scale,tx,ty,cx:(a[0][0]+a[1][0])/2,cy:(a[0][1]+a[1][1])/2};
+  if(mobileLayout.matches){mobileTap=null;mobileMultitouch=true}
+  e.preventDefault()
+ }
+},{passive:false});
+vp.addEventListener('touchmove',e=>{
+ for(const x of e.changedTouches){
+  touches.set(x.identifier,[x.clientX,x.clientY]);
+  if(mobileLayout.matches&&mobileTap?.id===x.identifier&&Math.hypot(x.clientX-mobileTap.x,x.clientY-mobileTap.y)>12)mobileTap=null
+ }
+ if(pinch&&touches.size===2){
+  let a=[...touches.values()],cx=(a[0][0]+a[1][0])/2,cy=(a[0][1]+a[1][1])/2,d=Math.hypot(a[1][0]-a[0][0],a[1][1]-a[0][1]),ns=Math.max(minScale,Math.min(maxScale,pinch.scale*d/pinch.dist));
+  tx=cx-(pinch.cx-pinch.tx)*ns/pinch.scale;ty=cy-(pinch.cy-pinch.ty)*ns/pinch.scale;scale=ns;applyTransform();e.preventDefault()
+ }
+},{passive:false});
+vp.addEventListener('touchend',e=>{
+ let endedPinch=!!pinch;
+ if(mobileLayout.matches&&!mobileMultitouch&&mobileTap){
+  let x=[...e.changedTouches].find(x=>x.identifier===mobileTap.id);
+  if(x&&mobileTap.stationId&&Math.hypot(x.clientX-mobileTap.x,x.clientY-mobileTap.y)<=12){
+   let stationId=mobileTap.stationId;mobileTap=null;ignoreStationClickUntil=performance.now()+500;e.preventDefault();selectStation(stationId)
+  }
+ }
+ for(const x of e.changedTouches)touches.delete(x.identifier);
+ if(touches.size<2)pinch=null;
+ if(mobileLayout.matches){
+  if(endedPinch)renderAll();
+  if(touches.size===0){mobileTap=null;mobileMultitouch=false}
+ }else if(touches.size<2)renderAll()
+},{passive:false});
+vp.addEventListener('touchcancel',e=>{
+ let endedPinch=!!pinch;
+ for(const x of e.changedTouches)touches.delete(x.identifier);
+ if(touches.size<2)pinch=null;
+ if(mobileLayout.matches){
+  mobileTap=null;
+  if(endedPinch)renderAll();
+  if(touches.size===0)mobileMultitouch=false
+ }else if(touches.size<2)renderAll()
+});
 let resizeTimer=null;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(scale<=minScale*1.1)fitNetwork()},120)});
-applyLang();requestAnimationFrame(()=>fitNetwork());
+applyLang();renderChips();renderModal();renderAll();requestAnimationFrame(()=>fitNetwork());
 </script></body></html>
