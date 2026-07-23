@@ -1,12 +1,12 @@
 <!doctype html>
-<!-- Build: single-file-rail-planner v2026.07.23.12; optimized mobile-only two-finger pan/pinch gestures with animation-frame batching and no SVG rebuild after pan-only gestures; direct single-tap station selection; automatic system light/dark appearance; desktop interactions unchanged; all 240 TRA stations use embedded official GPS coordinates and all 19 Alishan stations use embedded Forestry GIS coordinates, projected to a geographically relative schematic layout; scale is intentionally non-linear for readability; includes Alishan main, Zhaoping, Shenmu and Zhushan lines; proportional station markers; single embedded-data edition; no runtime remote fetch; reference timetable and fare; generation-time data refresh threshold 7 days; non-overlapping high-zoom station labels; generated 2026-07-23 15:39:52 (UTC+8, Asia/Taipei) -->
+<!-- Build: single-file-rail-planner v2026.07.23.13; fixed mobile two-finger gesture completion so SVG relayout waits until every touch is released, with browser touch-list synchronization, animation-frame batching, direct single-tap station selection, and no SVG rebuild after pan-only gestures; automatic system light/dark appearance; desktop interactions unchanged; all 240 TRA stations use embedded official GPS coordinates and all 19 Alishan stations use embedded Forestry GIS coordinates, projected to a geographically relative schematic layout; scale is intentionally non-linear for readability; includes Alishan main, Zhaoping, Shenmu and Zhushan lines; proportional station markers; single embedded-data edition; no runtime remote fetch; reference timetable and fare; generation-time data refresh threshold 7 days; non-overlapping high-zoom station labels; generated 2026-07-23 16:39:03 (UTC+8, Asia/Taipei) -->
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" media="(prefers-color-scheme:light)" content="#f7f9fc">
 <meta name="theme-color" media="(prefers-color-scheme:dark)" content="#121925">
-<meta name="build-version" content="v2026.07.23.12">
-<meta name="generated-at" content="2026-07-23 15:39:52 (UTC+8, Asia/Taipei)">
+<meta name="build-version" content="v2026.07.23.13">
+<meta name="generated-at" content="2026-07-23 16:39:03 (UTC+8, Asia/Taipei)">
 <meta name="data-snapshot-at" content="2026-07-22 14:45:45 (UTC+8, Asia/Taipei)">
 <meta name="alishan-data-snapshot-at" content="2026-07-23 08:36:40 (UTC+8, Asia/Taipei)">
 <meta name="alishan-branch-data-snapshot-at" content="2026-07-23 08:59:04 (UTC+8, Asia/Taipei)">
@@ -15,7 +15,7 @@
 <meta name="alishan-coordinate-source" content="阿里山林業鐵路車站 GIS（農業資料開放平臺 dataset 753）">
 <meta name="coordinate-layout-policy" content="north-up east-right geographic-relative schematic; not to scale">
 <meta name="runtime-network-access" content="disabled">
-<title>臺灣鐵路互動票價・路線・時間｜互動版 v2026.07.23.12</title>
+<title>臺灣鐵路互動票價・路線・時間｜互動版 v2026.07.23.13</title>
 <style>
 :root{--bg:#eef3f8;--card:rgba(255,255,255,.96);--ink:#172033;--muted:#687287;--border:#d6deea;--shadow:0 12px 34px rgba(25,38,64,.18);--accent:#215dc7;--good:#087f5b;--warn:#a76000;--map:#f7f9fc;--grid:#e8edf4}
 @media(prefers-color-scheme:dark){:root{--bg:#0f1420;--card:rgba(24,31,44,.96);--ink:#f3f6fc;--muted:#a4afc1;--border:#303a4c;--shadow:0 14px 38px rgba(0,0,0,.4);--accent:#7fa7ff;--good:#68dbad;--warn:#ffc56d;--map:#121925;--grid:#202a39}}
@@ -121,7 +121,7 @@ svg{display:block;overflow:visible} .outer-grid{fill:url(#gridPattern)} .network
 </style></head>
 <body><div id="app"><div id="viewport"><div id="world"></div></div>
 <aside id="sidebar" aria-label="Journey controls">
-<div id="brandBar" class="panel"><div class="brand-mark" aria-hidden="true">TRA</div><div class="brand-copy"><strong id="appTitle">臺鐵互動票價・路線・時間</strong><small data-i="interactiveVersion"></small></div><span class="brand-version">v2026.07.23.12</span></div>
+<div id="brandBar" class="panel"><div class="brand-mark" aria-hidden="true">TRA</div><div class="brand-copy"><strong id="appTitle">臺鐵互動票價・路線・時間</strong><small data-i="interactiveVersion"></small></div><span class="brand-version">v2026.07.23.13</span></div>
 <div id="searchPanel" class="panel"><div class="searchbox"><input id="search" autocomplete="off"><button id="clearSearch" class="mini-btn">×</button></div><div class="section-caption"><span data-i="quickRoutes"></span></div><div id="chips" class="chips" aria-label="quick routes"></div></div>
 <div id="planner" class="panel"><div class="plan-title"><span data-i="planner"></span><button id="collapseBtn" class="mini-btn" style="margin-left:auto" aria-expanded="true">⌃</button></div>
 <div class="plan-row"><span class="pin start"></span><select id="from"><option value=""></option></select><span></span></div>
@@ -136,8 +136,8 @@ svg{display:block;overflow:visible} .outer-grid{fill:url(#gridPattern)} .network
 <div id="modal" role="dialog" aria-modal="true"><div class="modal-inner"><div class="modal-head"><div class="langbar"><button data-lang="zh">繁體中文</button><button data-lang="en">English</button><button data-lang="ja">日本語</button><button data-lang="ko">한국어</button></div><button id="closeModal" class="map-btn">×</button></div><div id="modalContent"></div></div></div>
 <div id="portraitLock"><div>↻<br><span data-i="portrait"></span></div></div><div id="toast" class="toast"></div></div>
 <script>
-const BUILD_VERSION="v2026.07.23.12";
-const GENERATED_AT="2026-07-23 15:39:52 (UTC+8, Asia/Taipei)";
+const BUILD_VERSION="v2026.07.23.13";
+const GENERATED_AT="2026-07-23 16:39:03 (UTC+8, Asia/Taipei)";
 const DATA_SNAPSHOT_AT="2026-07-22 14:45:45 (UTC+8, Asia/Taipei)";
 const ALISHAN_DATA_SNAPSHOT_AT="2026-07-23 08:36:40 (UTC+8, Asia/Taipei)";
 const ALISHAN_BRANCH_DATA_SNAPSHOT_AT="2026-07-23 08:59:04 (UTC+8, Asia/Taipei)";
@@ -611,11 +611,13 @@ function focusStation(id){let s=stationMap.get(id),W=CFG.canvas[0],H=CFG.canvas[
 $$('.corner-toggle').forEach(b=>b.onclick=e=>{e.stopPropagation();let box=b.parentElement,other=box.id==='legendBox'?$('#scaleBox'):$('#legendBox');other.classList.remove('open');box.classList.toggle('open')});
 document.addEventListener('click',e=>{if(!e.target.closest('#topControls'))$('#moreMenu').hidden=true;if(!e.target.closest('#displayPanel')&&!e.target.closest('#displayBtn')){$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false')}if(!e.target.closest('.corner'))$$('.corner').forEach(x=>x.classList.remove('open'))});document.addEventListener('keydown',e=>{if(e.key==='Escape'){if($('#modal').classList.contains('open'))$('#modal').classList.remove('open');else if(!$('#displayPanel').hidden){$('#displayPanel').hidden=true;$('#displayBtn').setAttribute('aria-expanded','false')}else if(!$('#moreMenu').hidden)$('#moreMenu').hidden=true;else $$('.corner').forEach(x=>x.classList.remove('open'))}});
 const vp=$('#viewport');vp.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;if(e.target.closest('.station'))return;drag={x:e.clientX,y:e.clientY,tx,ty,id:e.pointerId};vp.setPointerCapture(e.pointerId);$('#world').classList.add('dragging')});vp.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;tx=drag.tx+e.clientX-drag.x;ty=drag.ty+e.clientY-drag.y;applyTransform()});vp.addEventListener('pointerup',e=>{drag=null;$('#world').classList.remove('dragging')});vp.addEventListener('pointercancel',()=>{drag=null;$('#world').classList.remove('dragging')});vp.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.12:.89,e.clientX,e.clientY)},{passive:false});
-let touches=new Map(),mobileTap=null,mobileMultitouch=false;
+let touches=new Map(),mobileTap=null,mobileMultitouch=false,mobileGestureZoomed=false;
+function syncTouches(list){touches.clear();for(const x of list)touches.set(x.identifier,[x.clientX,x.clientY])}
 vp.addEventListener('touchstart',e=>{
- for(const x of e.changedTouches)touches.set(x.identifier,[x.clientX,x.clientY]);
+ syncTouches(e.touches);
  if(mobileLayout.matches&&touches.size===1){
   let x=e.changedTouches[0],station=e.target.closest?.('.station');
+  mobileGestureZoomed=false;
   mobileTap={id:x.identifier,x:x.clientX,y:x.clientY,stationId:station?.dataset.id||''}
  }
  if(touches.size===2){
@@ -626,42 +628,47 @@ vp.addEventListener('touchstart',e=>{
  }
 },{passive:false});
 vp.addEventListener('touchmove',e=>{
+ syncTouches(e.touches);
  for(const x of e.changedTouches){
-  touches.set(x.identifier,[x.clientX,x.clientY]);
   if(mobileLayout.matches&&mobileTap?.id===x.identifier&&Math.hypot(x.clientX-mobileTap.x,x.clientY-mobileTap.y)>12)mobileTap=null
  }
  if(pinch&&touches.size===2){
   let a=[...touches.values()],cx=(a[0][0]+a[1][0])/2,cy=(a[0][1]+a[1][1])/2,d=Math.hypot(a[1][0]-a[0][0],a[1][1]-a[0][1]),ns=Math.max(minScale,Math.min(maxScale,pinch.scale*d/pinch.dist));
   pinch.zoomed=pinch.zoomed||Math.abs(ns-pinch.scale)>Math.max(.0005,pinch.scale*.001);
   pinch.moved=pinch.moved||Math.hypot(cx-pinch.cx,cy-pinch.cy)>1;
+  if(mobileLayout.matches&&pinch.zoomed)mobileGestureZoomed=true;
   tx=cx-(pinch.cx-pinch.tx)*ns/pinch.scale;ty=cy-(pinch.cy-pinch.ty)*ns/pinch.scale;scale=ns;if(mobileLayout.matches)scheduleGestureTransform();else applyTransform();e.preventDefault()
  }
 },{passive:false});
 vp.addEventListener('touchend',e=>{
- let endedPinch=pinch;
  if(mobileLayout.matches&&!mobileMultitouch&&mobileTap){
   let x=[...e.changedTouches].find(x=>x.identifier===mobileTap.id);
   if(x&&mobileTap.stationId&&Math.hypot(x.clientX-mobileTap.x,x.clientY-mobileTap.y)<=12){
    let stationId=mobileTap.stationId;mobileTap=null;ignoreStationClickUntil=performance.now()+500;e.preventDefault();selectStation(stationId)
   }
  }
- for(const x of e.changedTouches)touches.delete(x.identifier);
+ if(e.cancelable&&mobileLayout.matches&&mobileMultitouch)e.preventDefault();
+ syncTouches(e.touches);
  if(touches.size<2)pinch=null;
  if(mobileLayout.matches){
-  if(endedPinch?.zoomed)scheduleZoomRender();
-  if(touches.size===0){mobileTap=null;mobileMultitouch=false}
+  if(touches.size===0){
+   if(mobileGestureZoomed)scheduleZoomRender();
+   mobileTap=null;mobileMultitouch=false;mobileGestureZoomed=false
+  }
  }else if(touches.size<2)renderAll()
 },{passive:false});
 vp.addEventListener('touchcancel',e=>{
- let endedPinch=pinch;
- for(const x of e.changedTouches)touches.delete(x.identifier);
+ if(e.cancelable&&mobileLayout.matches&&mobileMultitouch)e.preventDefault();
+ syncTouches(e.touches);
  if(touches.size<2)pinch=null;
  if(mobileLayout.matches){
   mobileTap=null;
-  if(endedPinch?.zoomed)scheduleZoomRender();
-  if(touches.size===0)mobileMultitouch=false
+  if(touches.size===0){
+   if(mobileGestureZoomed)scheduleZoomRender();
+   mobileMultitouch=false;mobileGestureZoomed=false
+  }
  }else if(touches.size<2)renderAll()
-});
+},{passive:false});
 let resizeTimer=null;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(scale<=minScale*1.1)fitNetwork()},120)});
 applyLang();renderChips();renderModal();renderAll();requestAnimationFrame(()=>fitNetwork());
 </script></body></html>
